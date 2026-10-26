@@ -1,18 +1,18 @@
-name: Isolated contribution validation
+name: Isolated symlink issue reproduction
 on:
   push:
     branches: [verify/oss-20261027]
 permissions:
   contents: read
 jobs:
-  baseline:
-    name: baseline / Node ${{ matrix.node }}
+  reproduce:
+    name: baseline symlink / Node ${{ matrix.node }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        node: [24.15.0]
+        node: ['22.22.3', '24.15.0', '26.1.0']
     env:
       CI: true
     steps:
@@ -31,19 +31,20 @@ jobs:
         run: |
           git rev-parse HEAD
           node --version
-          npm --version
       - name: Install locked dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Build required native dependencies
-        run: pnpm rebuild esbuild node-pty
-      - name: Full test suite
-        run: pnpm test
-      - name: Type check
-        if: always()
-        run: pnpm type-check
-      - name: Lint
-        if: always()
-        run: pnpm lint
-      - name: Verify tracked source unchanged
+      - name: Build
+        run: pnpm build
+      - name: Run native symlink diagnostic
+        run: |
+          python -c "import base64,os,pathlib;pathlib.Path(os.environ['RUNNER_TEMP'],'reproduce-706.cjs').write_bytes(base64.b64decode('Ly8gRGlhZ25vc3RpYyBvbmx5LiBSZXF1aXJlcyBhIGJ1aWx0IHRzeCBjaGVja291dCBhbmQgbmF0aXZlIGZpbGUgc3ltbGlua3MuCi8vIG5vZGUgcmVwcm9kdWNlLTcwNi5janMgL2Fic29sdXRlL3BhdGgvdG8vdHN4L2Rpc3QvY2xpLm1qcyAvc2NyYXRjaC9vdXRwdXQKY29uc3QgZnMgPSByZXF1aXJlKCdub2RlOmZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdub2RlOnBhdGgnKTsKY29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpOwoKY29uc3QgY2xpID0gcHJvY2Vzcy5hcmd2WzJdICYmIHBhdGgucmVzb2x2ZShwcm9jZXNzLmFyZ3ZbMl0pOwpjb25zdCBvdXRwdXQgPSBwcm9jZXNzLmFyZ3ZbM10gJiYgcGF0aC5yZXNvbHZlKHByb2Nlc3MuYXJndlszXSk7CmlmICghY2xpIHx8ICFvdXRwdXQpIHRocm93IG5ldyBFcnJvcignVXNhZ2U6IG5vZGUgcmVwcm9kdWNlLTcwNi5janMgPGJ1aWx0LWNsaS5tanM+IDxzY3JhdGNoLW91dHB1dD4nKTsKZnMubWtkaXJTeW5jKG91dHB1dCwgeyByZWN1cnNpdmU6IHRydWUgfSk7CmNvbnN0IHJvb3QgPSBmcy5ta2R0ZW1wU3luYyhwYXRoLmpvaW4ob3V0cHV0LCAndHN4LTcwNi0nKSk7CmNvbnN0IGVudiA9IHt9Owpjb25zdCBhbGxvd2VkID0gbmV3IFNldChbJ1BBVEgnLCAnU1lTVEVNUk9PVCcsICdXSU5ESVInLCAnQ09NU1BFQycsICdQQVRIRVhUJywgJ1NZU1RFTURSSVZFJywgJ1BST0NFU1NPUl9BUkNISVRFQ1RVUkUnLCAnTlVNQkVSX09GX1BST0NFU1NPUlMnXSk7CmZvciAoY29uc3QgW2tleSwgdmFsdWVdIG9mIE9iamVjdC5lbnRyaWVzKHByb2Nlc3MuZW52KSkgewogIGlmIChhbGxvd2VkLmhhcyhrZXkudG9VcHBlckNhc2UoKSkpIGVudltrZXldID0gdmFsdWU7Cn0KT2JqZWN0LmFzc2lnbihlbnYsIHsgVEVNUDogcm9vdCwgVE1QOiByb290LCBUTVBESVI6IHJvb3QsIFRTWF9ESVNBQkxFX0NBQ0hFOiAnMScsIE5PX0NPTE9SOiAnMScgfSk7CmNvbnN0IHJlc3VsdHMgPSB7IG5vZGU6IHByb2Nlc3MudmVyc2lvbiwgcGxhdGZvcm06IHByb2Nlc3MucGxhdGZvcm0sIGNsaSwgcm9vdCwgY2FzZXM6IFtdIH07CmNvbnN0IHNhdmUgPSAoKSA9PiBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihvdXRwdXQsICdyZXN1bHRzLmpzb24nKSwgSlNPTi5zdHJpbmdpZnkocmVzdWx0cywgbnVsbCwgMikgKyAnXG4nKTsKdHJ5IHsKICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihyb290LCAncHJvYmUudHh0JyksICdjb25zb2xlLmxvZygicHJvYmUiKTtcbicpOwogIGZzLnN5bWxpbmtTeW5jKCdwcm9iZS50eHQnLCBwYXRoLmpvaW4ocm9vdCwgJ3Byb2JlLnRzJyksICdmaWxlJyk7CiAgcmVzdWx0cy5uYXRpdmVTeW1saW5rID0gZnMubHN0YXRTeW5jKHBhdGguam9pbihyb290LCAncHJvYmUudHMnKSkuaXNTeW1ib2xpY0xpbmsoKTsKfSBjYXRjaCAoZXJyb3IpIHsKICByZXN1bHRzLmJsb2NrZWQgPSB7IGNvZGU6IGVycm9yLmNvZGUsIHN5c2NhbGw6IGVycm9yLnN5c2NhbGwsIG1lc3NhZ2U6IGVycm9yLm1lc3NhZ2UgfTsKICBzYXZlKCk7CiAgY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkocmVzdWx0cykpOwogIHByb2Nlc3MuZXhpdCgyKTsKfQppZiAoIWZzLmV4aXN0c1N5bmMoY2xpKSkgdGhyb3cgbmV3IEVycm9yKGBNaXNzaW5nIGJ1aWx0IENMSTogJHtjbGl9YCk7CmZvciAoY29uc3QgdHlwZSBvZiBbJ2Fic2VudCcsICdjb21tb25qcycsICdtb2R1bGUnXSkgewogIGZvciAoY29uc3Qgc3ludGF4IG9mIFsnamF2YXNjcmlwdCcsICd0eXBlc2NyaXB0J10pIHsKICAgIGNvbnN0IGN3ZCA9IHBhdGguam9pbihyb290LCBgJHt0eXBlfS0ke3N5bnRheH1gKTsKICAgIGZzLm1rZGlyU3luYyhjd2QpOwogICAgZnMud3JpdGVGaWxlU3luYyhwYXRoLmpvaW4oY3dkLCAncGFja2FnZS5qc29uJyksIEpTT04uc3RyaW5naWZ5KHR5cGUgPT09ICdhYnNlbnQnID8ge30gOiB7IHR5cGUgfSkpOwogICAgY29uc3Qgc291cmNlID0gc3ludGF4ID09PSAndHlwZXNjcmlwdCcgPyAnY29uc3QgdmFsdWU6IHN0cmluZyA9ICI3MDYtb2siOyBjb25zb2xlLmxvZyh2YWx1ZSk7XG4nIDogJ2NvbnNvbGUubG9nKCI3MDYtb2siKTtcbic7CiAgICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihjd2QsICdpbmRleC50eHQnKSwgc291cmNlKTsKICAgIGZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKGN3ZCwgJ29yZGluYXJ5LnRzJyksIHNvdXJjZSk7CiAgICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihjd2QsICdpbXBvcnQubWpzJyksICdpbXBvcnQgIi4vaW5kZXgudHh0IjtcbicpOwogICAgZnMuc3ltbGlua1N5bmMoJ2luZGV4LnR4dCcsIHBhdGguam9pbihjd2QsICdpbmRleC50cycpLCAnZmlsZScpOwogICAgY29uc3QgY2FsbHMgPSBbCiAgICAgIFsnbm9kZS1vcmRpbmFyeS10cycsIFsnb3JkaW5hcnkudHMnXV0sCiAgICAgIFsnbm9kZS1zeW1saW5rJywgWydpbmRleC50cyddXSwKICAgICAgWydub2RlLXR4dCcsIFsnaW5kZXgudHh0J11dLAogICAgICBbJ3RzeC1vcmRpbmFyeS10cycsIFtjbGksICdvcmRpbmFyeS50cyddXSwKICAgICAgWyd0c3gtc3ltbGluaycsIFtjbGksICdpbmRleC50cyddXSwKICAgICAgWyd0c3gtdHh0JywgW2NsaSwgJ2luZGV4LnR4dCddXSwKICAgICAgWyd0c3gtcHJlc2VydmUtbWFpbicsIFtjbGksICctLXByZXNlcnZlLXN5bWxpbmtzLW1haW4nLCAnaW5kZXgudHMnXV0sCiAgICAgIFsndHN4LXByZXNlcnZlLWltcG9ydHMtb25seScsIFtjbGksICctLXByZXNlcnZlLXN5bWxpbmtzJywgJ2luZGV4LnRzJ11dLAogICAgICBbJ25vZGUtdW5rbm93bi1pbXBvcnQnLCBbJ2ltcG9ydC5tanMnXV0sCiAgICAgIFsndHN4LXVua25vd24taW1wb3J0JywgW2NsaSwgJ2ltcG9ydC5tanMnXV0sCiAgICBdOwogICAgZm9yIChjb25zdCBbbmFtZSwgYXJnc10gb2YgY2FsbHMpIHsKICAgICAgY29uc3QgY2hpbGQgPSBzcGF3blN5bmMocHJvY2Vzcy5leGVjUGF0aCwgYXJncywgeyBjd2QsIGVudiwgZW5jb2Rpbmc6ICd1dGY4JywgdGltZW91dDogMTUwMDAgfSk7CiAgICAgIHJlc3VsdHMuY2FzZXMucHVzaCh7IHR5cGUsIHN5bnRheCwgbmFtZSwgY29tbWFuZDogW3Byb2Nlc3MuZXhlY1BhdGgsIC4uLmFyZ3NdLCBjd2QsIHN0YXR1czogY2hpbGQuc3RhdHVzLCBzaWduYWw6IGNoaWxkLnNpZ25hbCwgZXJyb3I6IGNoaWxkLmVycm9yPy5tZXNzYWdlLCBzdGRvdXQ6IGNoaWxkLnN0ZG91dCwgc3RkZXJyOiBjaGlsZC5zdGRlcnIgfSk7CiAgICAgIHNhdmUoKTsKICAgIH0KICB9Cn0KY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkocmVzdWx0cywgbnVsbCwgMikpOwpjb25zdCB0YXJnZXRDYXNlcyA9IHJlc3VsdHMuY2FzZXMuZmlsdGVyKHRlc3QgPT4gdGVzdC5uYW1lID09PSAndHN4LXN5bWxpbmsnKTsKcHJvY2Vzcy5leGl0Q29kZSA9IHRhcmdldENhc2VzLmV2ZXJ5KHRlc3QgPT4gdGVzdC5zdGF0dXMgPT09IDAgJiYgdGVzdC5zdGRvdXQudHJpbSgpID09PSAnNzA2LW9rJykgPyAwIDogMTsK'))"
+          set +e
+          node "$RUNNER_TEMP/reproduce-706.cjs" "$PWD/dist/cli.mjs" "$RUNNER_TEMP/diagnostic" > "$RUNNER_TEMP/diagnostic.log" 2>&1
+          result=$?
+          set -e
+          echo "DIAGNOSTIC_EXIT=$result"
+          python -c 'import os,json,pathlib,hashlib,base64,zlib; p=pathlib.Path(os.environ["RUNNER_TEMP"],"diagnostic/results.json"); raw=p.read_bytes(); d=json.loads(raw); print("RESULT_SHA256",hashlib.sha256(raw).hexdigest()); print("RESULT_ZLIB_BASE64",base64.b64encode(zlib.compress(raw)).decode()); print("CASE_SUMMARY",json.dumps([{"type":c["type"],"syntax":c["syntax"],"name":c["name"],"status":c["status"],"stdout":c["stdout"],"stderr":c["stderr"][:220]} for c in d["cases"]])); print("NATIVE_SYMLINK",d.get("nativeSymlink"))'
+          exit "$result"
+      - name: Verify source unchanged
         if: always()
         run: git diff --exit-code
