@@ -1,0 +1,49 @@
+name: Isolated contribution validation
+on:
+  push:
+    branches: [verify/oss-20261027]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    name: baseline / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24.15.0]
+    env:
+      CI: true
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: 4473971f4b3261de253209b148d8fdc43269fcc4
+          persist-credentials: false
+      - name: Set up pinned pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061
+      - name: Set up Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Record source and runtime
+        run: |
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - name: Install locked dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build required native dependencies
+        run: pnpm rebuild esbuild node-pty
+      - name: Full test suite
+        run: pnpm test
+      - name: Type check
+        if: always()
+        run: pnpm type-check
+      - name: Lint
+        if: always()
+        run: pnpm lint
+      - name: Verify tracked source unchanged
+        if: always()
+        run: git diff --exit-code
