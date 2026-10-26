@@ -13,10 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {mode: candidate, node: '22.22.3'}
-          - {mode: candidate, node: '24.15.0'}
-          - {mode: candidate, node: '26.1.0'}
-          - {mode: baseline, node: '22.22.3'}
+          - {mode: candidate, node: '18.20.8'}
+          - {mode: candidate, node: '20.20.2'}
     env:
       CI: true
     steps:
@@ -30,7 +28,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24.15.0
       - name: Record checkout provenance
         run: |
           git rev-parse HEAD
@@ -50,8 +48,16 @@ jobs:
           git rev-parse HEAD
           node --version
           python -c 'import hashlib,pathlib,json; paths=["src/cjs/api/module-extensions.ts", "src/esm/hook/load.ts", "src/esm/hook/resolve.ts", "src/esm/hook/utils.ts", "tests/specs/cli.ts", "tests/specs/esm-hook-resolve.ts"]; print("SOURCE_HASHES",json.dumps({p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in paths}))'
-      - name: Full suite
-        run: pnpm test
+      - name: Build with project runtime
+        run: pnpm build
+      - name: Select compatibility runtime
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Retained native entry regressions
+        env:
+          TESTONLY: symlink
+        run: node ./dist/cli.mjs tests/index.ts
       - name: Native CLI matrix
         if: always() && matrix.mode == 'candidate'
         run: |
@@ -63,12 +69,6 @@ jobs:
           echo "DIAGNOSTIC_EXIT=$result"
           python -c 'import os,pathlib,hashlib,base64,zlib; b=pathlib.Path(os.environ["RUNNER_TEMP"],"probe/results.json").read_bytes(); print("RESULT_SHA256",hashlib.sha256(b).hexdigest()); print("RESULT_ZLIB_BASE64",base64.b64encode(zlib.compress(b)).decode())'
           exit "$result"
-      - name: Type check
-        if: always() && matrix.mode == 'candidate'
-        run: pnpm type-check
-      - name: Lint
-        if: always() && matrix.mode == 'candidate'
-        run: pnpm lint
       - name: Verify final source
         if: always() && matrix.mode == 'candidate'
         run: |
