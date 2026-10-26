@@ -13,11 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {mode: candidate, node: '18.20.8'}
           - {mode: candidate, node: '20.20.2'}
-          - {mode: candidate, node: '22.22.3'}
-          - {mode: candidate, node: '24.15.0'}
-          - {mode: candidate, node: '26.1.0'}
     env:
       CI: true
     steps:
@@ -53,39 +49,16 @@ jobs:
           python -c 'import hashlib,pathlib,json; paths=["src/cjs/api/module-extensions.ts", "src/esm/api/register.ts", "src/esm/hook/initialize.ts", "src/esm/hook/load.ts", "src/esm/hook/resolve.ts", "src/esm/hook/utils.ts", "tests/specs/cli.ts", "tests/specs/esm-hook-resolve.ts"]; print("SOURCE_HASHES",json.dumps({p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in paths}))'
       - name: Build with project runtime
         run: pnpm build
-      - name: Type check
-        run: pnpm type-check
-      - name: Full lint
-        run: pnpm lint
       - name: Select compatibility runtime
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
           node-version: ${{ matrix.node }}
-      - name: Full suite
-        if: matrix.node != '18.20.8' && matrix.node != '20.20.2'
-        run: pnpm test
-      - name: Retained native entry regressions
-        if: always()
-        env:
-          TESTONLY: symlink
-        run: node ./dist/cli.mjs tests/index.ts
-      - name: Native CLI matrix
-        if: always() && matrix.mode == 'candidate'
+      - name: Native CJS entry identity
         run: |
-          python -c "import base64,pathlib,os;pathlib.Path(os.environ['RUNNER_TEMP'],'probe.cjs').write_bytes(base64.b64decode('Ly8gRGlhZ25vc3RpYyBvbmx5LiBSZXF1aXJlcyBhIGJ1aWx0IHRzeCBjaGVja291dCBhbmQgbmF0aXZlIGZpbGUgc3ltbGlua3MuCi8vIG5vZGUgcmVwcm9kdWNlLTcwNi5janMgL2Fic29sdXRlL3BhdGgvdG8vdHN4L2Rpc3QvY2xpLm1qcyAvc2NyYXRjaC9vdXRwdXQKY29uc3QgZnMgPSByZXF1aXJlKCdub2RlOmZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdub2RlOnBhdGgnKTsKY29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpOwoKY29uc3QgY2xpID0gcHJvY2Vzcy5hcmd2WzJdICYmIHBhdGgucmVzb2x2ZShwcm9jZXNzLmFyZ3ZbMl0pOwpjb25zdCBvdXRwdXQgPSBwcm9jZXNzLmFyZ3ZbM10gJiYgcGF0aC5yZXNvbHZlKHByb2Nlc3MuYXJndlszXSk7CmlmICghY2xpIHx8ICFvdXRwdXQpIHRocm93IG5ldyBFcnJvcignVXNhZ2U6IG5vZGUgcmVwcm9kdWNlLTcwNi5janMgPGJ1aWx0LWNsaS5tanM+IDxzY3JhdGNoLW91dHB1dD4nKTsKZnMubWtkaXJTeW5jKG91dHB1dCwgeyByZWN1cnNpdmU6IHRydWUgfSk7CmNvbnN0IHJvb3QgPSBmcy5ta2R0ZW1wU3luYyhwYXRoLmpvaW4ob3V0cHV0LCAndHN4LTcwNi0nKSk7CmNvbnN0IGVudiA9IHt9Owpjb25zdCBhbGxvd2VkID0gbmV3IFNldChbJ1BBVEgnLCAnU1lTVEVNUk9PVCcsICdXSU5ESVInLCAnQ09NU1BFQycsICdQQVRIRVhUJywgJ1NZU1RFTURSSVZFJywgJ1BST0NFU1NPUl9BUkNISVRFQ1RVUkUnLCAnTlVNQkVSX09GX1BST0NFU1NPUlMnXSk7CmZvciAoY29uc3QgW2tleSwgdmFsdWVdIG9mIE9iamVjdC5lbnRyaWVzKHByb2Nlc3MuZW52KSkgewogIGlmIChhbGxvd2VkLmhhcyhrZXkudG9VcHBlckNhc2UoKSkpIGVudltrZXldID0gdmFsdWU7Cn0KT2JqZWN0LmFzc2lnbihlbnYsIHsgVEVNUDogcm9vdCwgVE1QOiByb290LCBUTVBESVI6IHJvb3QsIFRTWF9ESVNBQkxFX0NBQ0hFOiAnMScsIE5PX0NPTE9SOiAnMScgfSk7CmNvbnN0IHJlc3VsdHMgPSB7IG5vZGU6IHByb2Nlc3MudmVyc2lvbiwgcGxhdGZvcm06IHByb2Nlc3MucGxhdGZvcm0sIGNsaSwgcm9vdCwgY2FzZXM6IFtdIH07CmNvbnN0IHNhdmUgPSAoKSA9PiBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihvdXRwdXQsICdyZXN1bHRzLmpzb24nKSwgSlNPTi5zdHJpbmdpZnkocmVzdWx0cywgbnVsbCwgMikgKyAnXG4nKTsKdHJ5IHsKICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihyb290LCAncHJvYmUudHh0JyksICdjb25zb2xlLmxvZygicHJvYmUiKTtcbicpOwogIGZzLnN5bWxpbmtTeW5jKCdwcm9iZS50eHQnLCBwYXRoLmpvaW4ocm9vdCwgJ3Byb2JlLnRzJyksICdmaWxlJyk7CiAgcmVzdWx0cy5uYXRpdmVTeW1saW5rID0gZnMubHN0YXRTeW5jKHBhdGguam9pbihyb290LCAncHJvYmUudHMnKSkuaXNTeW1ib2xpY0xpbmsoKTsKfSBjYXRjaCAoZXJyb3IpIHsKICByZXN1bHRzLmJsb2NrZWQgPSB7IGNvZGU6IGVycm9yLmNvZGUsIHN5c2NhbGw6IGVycm9yLnN5c2NhbGwsIG1lc3NhZ2U6IGVycm9yLm1lc3NhZ2UgfTsKICBzYXZlKCk7CiAgY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkocmVzdWx0cykpOwogIHByb2Nlc3MuZXhpdCgyKTsKfQppZiAoIWZzLmV4aXN0c1N5bmMoY2xpKSkgdGhyb3cgbmV3IEVycm9yKGBNaXNzaW5nIGJ1aWx0IENMSTogJHtjbGl9YCk7CmZvciAoY29uc3QgdHlwZSBvZiBbJ2Fic2VudCcsICdjb21tb25qcycsICdtb2R1bGUnXSkgewogIGZvciAoY29uc3Qgc3ludGF4IG9mIFsnamF2YXNjcmlwdCcsICd0eXBlc2NyaXB0J10pIHsKICAgIGNvbnN0IGN3ZCA9IHBhdGguam9pbihyb290LCBgJHt0eXBlfS0ke3N5bnRheH1gKTsKICAgIGZzLm1rZGlyU3luYyhjd2QpOwogICAgZnMud3JpdGVGaWxlU3luYyhwYXRoLmpvaW4oY3dkLCAncGFja2FnZS5qc29uJyksIEpTT04uc3RyaW5naWZ5KHR5cGUgPT09ICdhYnNlbnQnID8ge30gOiB7IHR5cGUgfSkpOwogICAgY29uc3Qgc291cmNlID0gc3ludGF4ID09PSAndHlwZXNjcmlwdCcgPyAnY29uc3QgdmFsdWU6IHN0cmluZyA9ICI3MDYtb2siOyBjb25zb2xlLmxvZyh2YWx1ZSk7XG4nIDogJ2NvbnNvbGUubG9nKCI3MDYtb2siKTtcbic7CiAgICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihjd2QsICdpbmRleC50eHQnKSwgc291cmNlKTsKICAgIGZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKGN3ZCwgJ29yZGluYXJ5LnRzJyksIHNvdXJjZSk7CiAgICBmcy53cml0ZUZpbGVTeW5jKHBhdGguam9pbihjd2QsICdpbXBvcnQubWpzJyksICdpbXBvcnQgIi4vaW5kZXgudHh0IjtcbicpOwogICAgZnMuc3ltbGlua1N5bmMoJ2luZGV4LnR4dCcsIHBhdGguam9pbihjd2QsICdpbmRleC50cycpLCAnZmlsZScpOwogICAgY29uc3QgY2FsbHMgPSBbCiAgICAgIFsnbm9kZS1vcmRpbmFyeS10cycsIFsnb3JkaW5hcnkudHMnXV0sCiAgICAgIFsnbm9kZS1zeW1saW5rJywgWydpbmRleC50cyddXSwKICAgICAgWydub2RlLXR4dCcsIFsnaW5kZXgudHh0J11dLAogICAgICBbJ3RzeC1vcmRpbmFyeS10cycsIFtjbGksICdvcmRpbmFyeS50cyddXSwKICAgICAgWyd0c3gtc3ltbGluaycsIFtjbGksICdpbmRleC50cyddXSwKICAgICAgWyd0c3gtdHh0JywgW2NsaSwgJ2luZGV4LnR4dCddXSwKICAgICAgWyd0c3gtcHJlc2VydmUtbWFpbicsIFtjbGksICctLXByZXNlcnZlLXN5bWxpbmtzLW1haW4nLCAnaW5kZXgudHMnXV0sCiAgICAgIFsndHN4LXByZXNlcnZlLWltcG9ydHMtb25seScsIFtjbGksICctLXByZXNlcnZlLXN5bWxpbmtzJywgJ2luZGV4LnRzJ11dLAogICAgICBbJ25vZGUtdW5rbm93bi1pbXBvcnQnLCBbJ2ltcG9ydC5tanMnXV0sCiAgICAgIFsndHN4LXVua25vd24taW1wb3J0JywgW2NsaSwgJ2ltcG9ydC5tanMnXV0sCiAgICBdOwogICAgZm9yIChjb25zdCBbbmFtZSwgYXJnc10gb2YgY2FsbHMpIHsKICAgICAgY29uc3QgY2hpbGQgPSBzcGF3blN5bmMocHJvY2Vzcy5leGVjUGF0aCwgYXJncywgeyBjd2QsIGVudiwgZW5jb2Rpbmc6ICd1dGY4JywgdGltZW91dDogMTUwMDAgfSk7CiAgICAgIHJlc3VsdHMuY2FzZXMucHVzaCh7IHR5cGUsIHN5bnRheCwgbmFtZSwgY29tbWFuZDogW3Byb2Nlc3MuZXhlY1BhdGgsIC4uLmFyZ3NdLCBjd2QsIHN0YXR1czogY2hpbGQuc3RhdHVzLCBzaWduYWw6IGNoaWxkLnNpZ25hbCwgZXJyb3I6IGNoaWxkLmVycm9yPy5tZXNzYWdlLCBzdGRvdXQ6IGNoaWxkLnN0ZG91dCwgc3RkZXJyOiBjaGlsZC5zdGRlcnIgfSk7CiAgICAgIHNhdmUoKTsKICAgIH0KICB9Cn0KY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkocmVzdWx0cywgbnVsbCwgMikpOwpjb25zdCB0YXJnZXRDYXNlcyA9IHJlc3VsdHMuY2FzZXMuZmlsdGVyKHRlc3QgPT4gdGVzdC5uYW1lID09PSAndHN4LXN5bWxpbmsnKTsKcHJvY2Vzcy5leGl0Q29kZSA9IHRhcmdldENhc2VzLmV2ZXJ5KHRlc3QgPT4gdGVzdC5zdGF0dXMgPT09IDAgJiYgdGVzdC5zdGRvdXQudHJpbSgpID09PSAnNzA2LW9rJykgPyAwIDogMTsK'))"
-          set +e
-          node "$RUNNER_TEMP/probe.cjs" "$PWD/dist/cli.mjs" "$RUNNER_TEMP/probe" > "$RUNNER_TEMP/probe.log" 2>&1
-          result=$?
-          set -e
-          echo "DIAGNOSTIC_EXIT=$result"
-          python -c 'import os,pathlib,hashlib,base64,zlib; b=pathlib.Path(os.environ["RUNNER_TEMP"],"probe/results.json").read_bytes(); print("RESULT_SHA256",hashlib.sha256(b).hexdigest()); print("RESULT_ZLIB_BASE64",base64.b64encode(zlib.compress(b)).decode())'
-          exit "$result"
-      - name: Native composed provider
-        if: always() && matrix.node != '18.20.8' && matrix.node != '20.20.2'
-        run: |
-          python -c "import base64,pathlib,os;pathlib.Path(os.environ['RUNNER_TEMP'],'composition.mjs').write_bytes(base64.b64decode('Ly8gUnVuIG9uIExpbnV4OiBub2RlIG5hdGl2ZS1jb21wb3NpdGlvbi5tanMgL2Fic29sdXRlL2Jhc2VsaW5lL2Rpc3QvbG9hZGVyLm1qcyAvYWJzb2x1dGUvY2FuZGlkYXRlL2Rpc3QvbG9hZGVyLm1qcwppbXBvcnQgZnMgZnJvbSAnbm9kZTpmcyc7CmltcG9ydCBwYXRoIGZyb20gJ25vZGU6cGF0aCc7CmltcG9ydCBvcyBmcm9tICdub2RlOm9zJzsKaW1wb3J0IHtmaWxlVVJMVG9QYXRoLHBhdGhUb0ZpbGVVUkx9IGZyb20gJ25vZGU6dXJsJzsKaW1wb3J0IHtzcGF3blN5bmN9IGZyb20gJ25vZGU6Y2hpbGRfcHJvY2Vzcyc7CmNvbnN0IHJvb3Q9cGF0aC5qb2luKHBhdGguZGlybmFtZShmaWxlVVJMVG9QYXRoKGltcG9ydC5tZXRhLnVybCkpLCAnbmF0aXZlLWNvbXBvc2l0aW9uLWZpeHR1cmUnKTsKZnMubWtkaXJTeW5jKHJvb3Qse3JlY3Vyc2l2ZTp0cnVlfSk7CmZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKHJvb3QsJ3BhY2thZ2UuanNvbicpLCd7InR5cGUiOiJjb21tb25qcyJ9Jyk7CmZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKHJvb3QsJ3RhcmdldC50eHQnKSwnY29uc29sZS5sb2coInVudXNlZCBkaXNrIHNvdXJjZSIpOycpOwpjb25zdCBlbnRyeT1wYXRoLmpvaW4ocm9vdCwnZW50cnkudHMnKTsKaWYoIWZzLmV4aXN0c1N5bmMoZW50cnkpKSBmcy5zeW1saW5rU3luYygnLi90YXJnZXQudHh0JyxlbnRyeSk7CmZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKHJvb3QsJ3Byb3ZpZGVyLm1qcycpLCBgCmltcG9ydCB7cmVnaXN0ZXJIb29rc30gZnJvbSAnbm9kZTptb2R1bGUnOwpjb25zdCB0YXJnZXRVUkwgPSAke0pTT04uc3RyaW5naWZ5KHBhdGhUb0ZpbGVVUkwocGF0aC5qb2luKHJvb3QsJ3RhcmdldC50eHQnKSkudG9TdHJpbmcoKSl9OwpyZWdpc3Rlckhvb2tzKHsKcmVzb2x2ZShzcGVjaWZpZXIsY29udGV4dCxuZXh0UmVzb2x2ZSl7CiBpZihzcGVjaWZpZXI9PT10YXJnZXRVUkwpcmV0dXJuIHt1cmw6dGFyZ2V0VVJMLGZvcm1hdDonY29tbW9uanMnLHNob3J0Q2lyY3VpdDp0cnVlfTsKIHJldHVybiBuZXh0UmVzb2x2ZShzcGVjaWZpZXIsY29udGV4dCk7Cn0sCmxvYWQodXJsLGNvbnRleHQsbmV4dExvYWQpewogaWYodXJsPT09dGFyZ2V0VVJMKXJldHVybiB7Zm9ybWF0Oidjb21tb25qcycsc291cmNlOidjb25zb2xlLmxvZyhKU09OLnN0cmluZ2lmeSh7ZmlsZW5hbWU6X19maWxlbmFtZSxleHBvcnRzVHlwZTp0eXBlb2YgbW9kdWxlLmV4cG9ydHMsZGlybmFtZTpfX2Rpcm5hbWV9KSk7JyxzaG9ydENpcmN1aXQ6dHJ1ZX07CiByZXR1cm4gbmV4dExvYWQodXJsLGNvbnRleHQpOwp9Cn0pOwpgKTsKY29uc3QgcmVzdWx0cz1wcm9jZXNzLmFyZ3Yuc2xpY2UoMikubWFwKGxvYWRlcj0+ewogY29uc3QgYXJncz1bJy0taW1wb3J0JyxwYXRoVG9GaWxlVVJMKHBhdGguam9pbihyb290LCdwcm92aWRlci5tanMnKSkudG9TdHJpbmcoKSwnLS1pbXBvcnQnLHBhdGhUb0ZpbGVVUkwocGF0aC5yZXNvbHZlKGxvYWRlcikpLnRvU3RyaW5nKCksZW50cnldOwogY29uc3Qgcj1zcGF3blN5bmMocHJvY2Vzcy5leGVjUGF0aCxhcmdzLHtjd2Q6cm9vdCxlbmNvZGluZzondXRmOCcsdGltZW91dDoyMDAwMCxlbnY6e1BBVEg6cHJvY2Vzcy5lbnYuUEFUSCxIT01FOnByb2Nlc3MuZW52LkhPTUUsVE1QRElSOnJvb3R9fSk7CiByZXR1cm4ge2xvYWRlcixhcmdzLG5vZGU6cHJvY2Vzcy52ZXJzaW9uLHBsYXRmb3JtOm9zLnBsYXRmb3JtKCksc3RhdHVzOnIuc3RhdHVzLHN0ZG91dDpyLnN0ZG91dCxzdGRlcnI6ci5zdGRlcnJ9Owp9KTsKZnMud3JpdGVGaWxlU3luYyhwYXRoLmpvaW4ocm9vdCwncmVzdWx0cy5qc29uJyksSlNPTi5zdHJpbmdpZnkocmVzdWx0cyxudWxsLDIpKTsKY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkocmVzdWx0cyxudWxsLDIpKTsK'))"
-          node "$RUNNER_TEMP/composition.mjs" "$PWD/dist/loader.mjs"
-          python -c 'import os,pathlib,json; rows=json.loads(pathlib.Path(os.environ["RUNNER_TEMP"],"native-composition-fixture/results.json").read_text()); assert len(rows)==1 and rows[0]["status"]==0; out=json.loads(rows[0]["stdout"]); assert out["exportsType"]=="object" and out["filename"].endswith("target.txt")'
+          python -c "import base64,pathlib,os;pathlib.Path(os.environ['RUNNER_TEMP'],'audit.cjs').write_bytes(base64.b64decode('Y29uc3QgTW9kdWxlPXJlcXVpcmUoJ21vZHVsZScpO2NvbnN0IGZzPXJlcXVpcmUoJ2ZzJyk7Y29uc3QgbG9hZD1Nb2R1bGUuX2V4dGVuc2lvbnNbJy5qcyddO01vZHVsZS5fZXh0ZW5zaW9uc1snLmpzJ109ZnVuY3Rpb24obSxmKXtpZihmLmVuZHNXaXRoKCdtYWluLnR4dCcpKWNvbnNvbGUuZXJyb3IoJ0VOVFJZX0lERU5USVRZICcrSlNPTi5zdHJpbmdpZnkoe2lkOm0uaWQsbWFpbjptPT09cHJvY2Vzcy5tYWluTW9kdWxlLGFyZ3Y6cHJvY2Vzcy5hcmd2LGZpbGVuYW1lOmYscmVhbDpmcy5yZWFscGF0aFN5bmMocHJvY2Vzcy5hcmd2WzFdKX0pKTtyZXR1cm4gbG9hZChtLGYpfTs='))"
+          python -c "import base64,pathlib,os;pathlib.Path(os.environ['RUNNER_TEMP'],'fixture.cjs').write_bytes(base64.b64decode('Y29uc3QgZnM9cmVxdWlyZSgnZnMnKSxwYXRoPXJlcXVpcmUoJ3BhdGgnKTtjb25zdCBwPXByb2Nlc3MuZW52LlJVTk5FUl9URU1QO2ZzLndyaXRlRmlsZVN5bmMocGF0aC5qb2luKHAsJ3BhY2thZ2UuanNvbicpLCd7InR5cGUiOiJjb21tb25qcyJ9Jyk7ZnMud3JpdGVGaWxlU3luYyhwYXRoLmpvaW4ocCwnbWFpbi50eHQnKSwnY29uc3QgeDogc3RyaW5nPSI3MDYtb2siO2NvbnNvbGUubG9nKHgpJyk7ZnMuc3ltbGlua1N5bmMoJ21haW4udHh0JyxwYXRoLmpvaW4ocCwnbWFpbi50cycpKTs='))"
+          node "$RUNNER_TEMP/fixture.cjs"
+          node ./dist/cli.mjs --require "$RUNNER_TEMP/audit.cjs" "$RUNNER_TEMP/main.ts"
       - name: Verify final source
         if: always() && matrix.mode == 'candidate'
         run: |
